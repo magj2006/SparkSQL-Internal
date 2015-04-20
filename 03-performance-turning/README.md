@@ -25,8 +25,9 @@ SparkSQL在集群中运行，将一个查询任务分解成大量的Task分配�
 
 * PROCESS_LOCAL是指读取缓存在本地节点的数据
 * NODE_LOCAL是指读取本地节点硬盘数据
+* RACK_LOCAL 是指同一个机架上硬盘数据
 * ANY是指读取非本地节点数据
-* 通常读取数据PROCESS\_LOCAL>NODE\_LOCAL>ANY，尽量使数据以PROCESS\_LOCAL或NODE\_LOCAL方式读取。其中PROCESS_LOCAL还和cache有关。
+* 通常读取数据PROCESS\_LOCAL>NODE\_LOCAL>RACK\_LOCAL>ANY，尽量使数据以PROCESS\_LOCAL或NODE\_LOCAL方式读取。其中PROCESS_LOCAL还和cache有关。
 
 ##### 合适的数据类型
 对于要查询的数据，定义合适的数据类型也是非常有必要。对于一个tinyint可以使用的数据列，不需要为了方便定义成int类型，一个tinyint的数据占用了1个byte，而int占用了4个byte。也就是说，一旦将这数据进行缓存的话，内存的消耗将增加数倍。在SparkSQL里，定义合适的数据类型可以节省有限的内存资源。
