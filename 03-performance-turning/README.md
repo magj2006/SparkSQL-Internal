@@ -7,7 +7,7 @@ SparkSQL在集群中运行，将一个查询任务分解成大量的Task分配�
 
 这时大家就应该明白了，要跑完这200个Task就要跑200/3=67批次。如何减少运行的批次呢？那就要尽量提高查询任务的并行度。查询任务的并行度由两方面决定：集群的处理能力和集群的有效处理能力。
 
-对于Spark Standalone集群来说，集群的处理能力是由conf/spark-env中的SPARK\_EXECUTOR\_INSTANCES | spark\_executor\_instance 参数、SPARK\_EXECUTOR\_CORES | spark\_executor\_cores参数决定的；而SPARK\_EXECUTOR\_INSTANCES\*SPARK\_EXECUTOR\_CORES不能超过物理机器的实际CPU core；
+对于Spark Standalone集群来说，集群的处理能力是由conf/spark-env中的SPARK\_EXECUTOR\_INSTANCES | spark\_executor\_instances 参数、SPARK\_EXECUTOR\_CORES | spark\_executor\_cores参数决定的；而SPARK\_EXECUTOR\_INSTANCES\*SPARK\_EXECUTOR\_CORES不能超过物理机器的实际CPU core；
 
 集群的有效处理能力是指集群中空闲的集群资源，一般是指使用spark-submit或spark-shell时指定的--total-executor-cores，一般情况下，我们不需要指定，这时候，Spark Standalone集群会将所有空闲的core分配给查询，并且在Task轮询运行过程中，Standalone集群会将其他spark应用程序运行完后空闲出来的core也分配给正在运行中的查询。
 
