@@ -1,5 +1,5 @@
 # SqlContext的运行过程
-SparkSQL有两个分支SqlContext和Hivecontext，SqlContext现在只支持sql语法解析器（SQL-92语法），而HiveContext现在既支持sql语法解析器又支持hivesql语法解析器，默认为hivesql语法解析器，用户可以通过配置切换成sql语法解析器，来运行hiveql不支持的语法。
+SparkSQL有两个分支SqlContext和HiveContext，SqlContext现在只支持sql语法解析器（SQL-92语法），而HiveContext现在既支持sql语法解析器又支持hivesql语法解析器，默认为hivesql语法解析器，用户可以通过配置切换成sql语法解析器，来运行hiveql不支持的语法。
 
 SqlContext使用sqlContext.sql(sqlText)来提交用户sql语句，SqlContext首先会调用parserSql对sqlText进行语法分析，然后返回给用户DataFrame。Dataframe继承自RDDApi[Row]。
 
