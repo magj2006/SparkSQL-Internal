@@ -22,17 +22,24 @@ class DataFrame private[sql](
     @transient val sqlContext: SQLContext,
     @DeveloperApi @transient val queryExecution: SQLContext#QueryExecution)
   extends RDDApi[Row] with Serializable {
-```
-  /**
-   * An internal interface defining the RDD-like methods for [[DataFrame]].
-   * Please use [[DataFrame]] directly, and do NOT use this.
-   */
-  private[sql] trait RDDApi[T] {
-    def cache(): this.type
-  
-    def persist(): this.type
   ...
   }
+  
+  /**
+ * An internal interface defining the RDD-like methods for [[DataFrame]].
+ * Please use [[DataFrame]] directly, and do NOT use this.
+ */
+private[sql] trait RDDApi[T] {
+
+  def cache(): this.type
+
+  def persist(): this.type
+  ...
+  }
+```
+
+
+
  
 parseSql首先会尝试dll语法解析，如果失败则进行sql语法解析。
 ```
