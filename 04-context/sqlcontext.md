@@ -1,7 +1,7 @@
 # SqlContext的运行过程
 SparkSQL有两个分支SqlContext和Hivecontext，SqlContext现在只支持sql语法解析器（SQL-92语法），而HiveContext现在既支持sql语法解析器又支持hivesql语法解析器，默认为hivesql语法解析器，用户可以通过配置切换成sql语法解析器，来运行hiveql不支持的语法。
 
-SqlContext使用sqlContext.sql(sqlText)来提交用户sql语句，SqlContext首先会调用parserSql对sqlText进行语法分析，然后返回给用户SchemaRDD。SchemaRDD继承自SchemaRDDLike。
+SqlContext使用sqlContext.sql(sqlText)来提交用户sql语句，SqlContext首先会调用parserSql对sqlText进行语法分析，然后返回给用户DataFrame。Dataframe继承自RDDApi[Row]。
 
 ```
   /**
@@ -10,69 +10,57 @@ SqlContext使用sqlContext.sql(sqlText)来提交用户sql语句，SqlContext首�
    *
    * @group userf
    */
-  def sql(sqlText: String): SchemaRDD = {
-    if (dialect == "sql") {
-      new SchemaRDD(this, parseSql(sqlText))
-    } else {
-      sys.error(s"Unsupported SQL dialect: $dialect")
+   def sql(sqlText: String): DataFrame = {
+      if (conf.dialect == "sql") {
+        DataFrame(this, parseSql(sqlText))
+      } else {
+        sys.error(s"Unsupported SQL dialect: ${conf.dialect}")
+      }
     }
-  }
 
-protected[sql] val sqlParser = {
-    val fallback = new catalyst.SqlParser
-    new catalyst.SparkSQLParser(fallback(_))
-  }
-
-class SchemaRDD(
+class DataFrame private[sql](
     @transient val sqlContext: SQLContext,
-    @transient val baseLogicalPlan: LogicalPlan)
-  extends RDD[Row](sqlContext.sparkContext, Nil) with SchemaRDDLike
+    @DeveloperApi @transient val queryExecution: SQLContext#QueryExecution)
+  extends RDDApi[Row] with Serializable {
 ```
 
 parseSql首先会尝试dll语法解析，如果失败则进行sql语法解析。
 ```
-   protected[sql] def parseSql(sql: String): LogicalPlan = {
-    ddlParser(sql).getOrElse(sqlParser(sql))
+  protected[sql] def parseSql(sql: String): LogicalPlan = {
+    ddlParser(sql, false).getOrElse(sqlParser(sql))
   }
 ```
 
-然后调用SchemaRDDLike中的sqlContext.executePlan(baseLogicalPlan)来执行catalyst.SqlParser解析后生成的Unresolved LogicalPlan。
+然后调用DataFrame中的辅助构造函数，其再调用sqlContext.executePlan(logicalPlan)来生成QueryExecution对象，此类将完成关系查询的主要流程。
 ```
-private[sql] trait SchemaRDDLike {
-  @transient def sqlContext: SQLContext
-  @transient val baseLogicalPlan: LogicalPlan
-
-  private[sql] def baseSchemaRDD: SchemaRDD
-  ...
-  lazy val queryExecution = sqlContext.executePlan(baseLogicalPlan)
-  ...
+  def this(sqlContext: SQLContext, logicalPlan: LogicalPlan) = {
+    this(sqlContext, {
+      val qe = sqlContext.executePlan(logicalPlan)
+      if (sqlContext.conf.dataFrameEagerAnalysis) {
+        qe.assertAnalyzed()  // This should force analysis and throw errors if there are any
+      }
+      qe
+    })
   }
+  ...
+  
+  protected[sql] def executePlan(plan: LogicalPlan) = new this.QueryExecution(plan)
+  
 ```
-
-
-接着executePlan会调用QueryExecution
-```
-protected[sql] def executePlan(plan: LogicalPlan): this.QueryExecution =
-    new this.QueryExecution { val logical = plan }
-```
-
 先看看QueryExecution的代码
 ```
-/**
-   * :: DeveloperApi ::
-   * The primary workflow for executing relational queries using Spark.  Designed to allow easy
-   * access to the intermediate phases of query execution for developers.
-   */
-  @DeveloperApi
-  protected abstract class QueryExecution {
-    def logical: LogicalPlan
+  protected[sql] class QueryExecution(val logical: LogicalPlan) {
+    def assertAnalyzed(): Unit = analyzer.checkAnalysis(analyzed)
 
-    lazy val analyzed = ExtractPythonUdfs(analyzer(logical))
-    lazy val withCachedData = useCachedData(analyzed)
-    lazy val optimizedPlan = optimizer(withCachedData)
+    lazy val analyzed: LogicalPlan = analyzer(logical)
+    lazy val withCachedData: LogicalPlan = {
+      assertAnalyzed()
+      cacheManager.useCachedData(analyzed)
+    }
+    lazy val optimizedPlan: LogicalPlan = optimizer(withCachedData)
 
     // TODO: Don't just pick the first one...
-    lazy val sparkPlan = {
+    lazy val sparkPlan: SparkPlan = {
       SparkPlan.currentContext.set(self)
       planner(optimizedPlan).next()
     }
@@ -82,9 +70,8 @@ protected[sql] def executePlan(plan: LogicalPlan): this.QueryExecution =
 
     /** Internal version of the RDD. Avoids copies and has no schema */
     lazy val toRdd: RDD[Row] = executedPlan.execute()
-    ...
-    }
-```
+
+``}
 
 QueryExecution的执行如下
 1. 使用analyzer结合数据数据字典（catalog）进行绑定，生成resolved LogicalPlan
