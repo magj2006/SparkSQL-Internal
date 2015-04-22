@@ -93,8 +93,9 @@ parseSql首先会尝试dll语法解析，如果失败则进行sql语法解析。
 
     /** Internal version of the RDD. Avoids copies and has no schema */
     lazy val toRdd: RDD[Row] = executedPlan.execute()
-
-``}
+  ...
+  }
+```
 
 QueryExecution的执行如下
 1. 使用analyzer结合数据数据字典（catalog）进行绑定，生成resolved LogicalPlan
