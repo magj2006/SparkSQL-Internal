@@ -66,6 +66,12 @@ parseSql首先会尝试dll语法解析，如果失败则进行sql语法解析。
 ```
 先看看QueryExecution的代码
 ```
+  /**
+   * :: DeveloperApi ::
+   * The primary workflow for executing relational queries using Spark.  Designed to allow easy
+   * access to the intermediate phases of query execution for developers.
+   */
+  @DeveloperApi
   protected[sql] class QueryExecution(val logical: LogicalPlan) {
     def assertAnalyzed(): Unit = analyzer.checkAnalysis(analyzed)
 
